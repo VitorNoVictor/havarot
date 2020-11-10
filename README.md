@@ -10,7 +10,6 @@ const heb: string = "אֱלֹהִים";
 const text: Text = new Text(heb);
 const sylText = text.syllables.map((syl) => syl.text);
 sylText;
-//
 //  [
 //    "אֱ"
 //    "לֹ"
@@ -132,7 +131,7 @@ text.chars;
 
 ### Word
 
-`Text.text` is split at each space and maqqef (U+05BE) both of which are captured. Thus, the string passed to instantiate each `Word` is already properly decomposed, sequenced, and qamets qatan patterns converted to the appropriate unicode character (U+05C7).
+`Text.text` is split at each space and maqqef (U+05BE) both of which are captured. Thus, the string passed to instantiate each `Word` is already properly decomposed, sequenced, qamets qatan patterns converted to the appropriate unicode character (U+05C7), and holem-waw sequences corrected.
 
 #### Word.original
 
@@ -152,7 +151,7 @@ words;
 
 #### Word.text
 
-Returns a string that has been properly trimmed, built up from the `.text` of its constituent parts.
+Returns a string that has been properly trimmed from `.original`.
 
 ```typescript
 import { Text } from "havarotjs";
@@ -214,15 +213,53 @@ text.words[0].chars;
 //  ]
 ```
 
+#### Word.whiteSpaceAfter & Word.whiteSpaceBefore
+
+Returns a string with any whitespace characters (e.g. `/\s/`) from before the word.
+It does **not** capture whitespace at the start of a `Text`.
+
+```typescript
+import { Text } from "havarotjs";
+const heb = `
+עֶבֶד
+אֱלֹהִים
+`;
+const text: Text = new Text(heb);
+text.words;
+// [
+//   Word {
+//     original: 'עֶבֶד\n',
+//     text: 'עֶבֶד',
+//     whiteSpaceBefore: '',
+//     whiteSpaceAfter: '\n'
+//   },
+//   Word {
+//     original: 'אֱלֹהִים',
+//     text: 'אֱלֹהִים',
+//     whiteSpaceBefore: '',
+//     whiteSpaceAfter: ''
+//   }
+// ]
+```
+
+#### Word.isDivineName
+
+Returns a `boolean` indicating if the word is a form of the Divine Name.
+Only recognizes forms that have all four letters.
+
+```typescript
+import { Text } from "havarotjs";
+const text: Text = new Text("יְהוָה");
+text.words[0].isDivineName;
+// true
+```
+
 ### Syllable
 
 A `Syllable` is created from an array of `Clusters`.
 
-This is where things get tricky. The string from `Word.original` is passed into `syllabify()` from `"./src/utils/syllabifier"`.
-This string is then converted into `Clusters` which are analyzed as being part of a syllable since a syallble can have more than one cluster.
-The `syllabify()` function determines if a what is a syllable and if it is closed, accented, or final.
-
 See the [syllabification](./docs/syllabification.md) doc for how a syllable is determined.
+Currently, the Divine Name (e.g. יהוה) and non-Hebrew text is treated as a _single syllable_ because these do not follow Hebrew rules of syllabification.
 
 #### Syllable.text
 
@@ -424,6 +461,43 @@ text.clusters[0].hasVowel;
 // true
 text.clusters[4].hasVowel;
 // false
+```
+
+#### Cluster.isShureq
+
+Returns `true` if `Cluster.hasVowel` is `false` and `Cluster.text` is a waw followed by a dagesh (e.g. `וּ`)
+
+A shureq is vowel itself, but contains no vowel characters (hence why `hasVowel` cannot be `true`).
+This allows for easier syllabification
+
+```typescript
+import { Text } from "havarotjs";
+const text: Text = new Text("קוּם");
+text.clusters[0].isShureq;
+// false
+text.clusters[1].isShureq;
+// true
+```
+
+#### Cluster.isMater
+
+Returns `true` if `Cluster.hasVowel`, `Cluster.hasShewa`, and, `Cluster.isShureq` are all `false` and `Cluster.text` contains a:
+
+- `ה` preceded by a qamets
+- `ו` preceded by a holem
+- `י` preceded by a hiriq, tsere, or seghol
+
+There are potentially others instances when a consonant may be a _mater_ (e.g. a final aleph, a he preceded by a seghol), but these are the most consistently so.
+
+Though a shureq is a mater letter, it is also a vowel itself, and thus separate from `isMater`.
+
+```typescript
+import { Text } from "havarotjs";
+const text: Text = new Text("סוּסָה");
+text.clusters[1].isMater; // the shureq
+// false
+text.clusters[3].isMater; // the heh
+// true
 ```
 
 #### Cluster.hasMetheg

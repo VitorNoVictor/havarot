@@ -5,11 +5,14 @@ import { holemWaw } from "./utils/holemWaw";
 import { Syllable } from "./syllable";
 import { Cluster } from "./cluster";
 import { Char } from "./char";
+import { splitGroup } from "./utils/regularExpressions";
+import { Node } from "./node";
 
-export class Text {
+export class Text extends Node {
   original: string;
 
   constructor(text: string) {
+    super();
     this.original = this.validateInput(text);
   }
 
@@ -29,11 +32,11 @@ export class Text {
    * @returns a string that has been decomposed, sequenced, qamets qatan patterns converted to the appropriate unicode character (U+05C7), and holem-waw sequences corrected
    */
   get text(): string {
-    const text = this.normalized;
+    const text = this.normalized.trim();
     const sequencedChar = sequence(text).reduce((a, c) => a.concat(c), []);
     const sequencedText = sequencedChar.reduce((a, c) => a + c.text, "");
     // split text at spaces and maqqef, spaces are added to the array as separate entries
-    const textArr = sequencedText.split(/(\s|\S*\u{05BE})/u);
+    const textArr = sequencedText.split(splitGroup);
     const mapQQatan = textArr.map((word) => convertsQametsQatan(word));
     const mapHolemWaw = mapQQatan.map((word) => holemWaw(word));
     return mapHolemWaw.reduce((a, c) => a + c, "");
@@ -43,12 +46,11 @@ export class Text {
    * @returns a one dimensional array of Words
    */
   get words(): Word[] {
-    let sanitized = this.text;
-    // split text at spaces and maqqef, spaces are NOT added to the array but to the word
-    // this may not be right
-    const split = sanitized.split(/(\S*\s|\S*\u{05BE})/u);
-    const textArr = split.filter((group) => group);
-    return textArr.map((word) => new Word(word));
+    const split = this.text.split(splitGroup);
+    const groups = split.filter((group) => group);
+    const words = groups.map((word) => new Word(word));
+    this.children = words;
+    return words;
   }
 
   /**
